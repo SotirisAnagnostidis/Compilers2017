@@ -44,6 +44,7 @@ int num_eisagwgika;
 L [a-zA-Z]
 D [0-9]
 W [ \t\r]
+Lh [a-fA-F]
 
 %x comment
 %x string
@@ -75,14 +76,27 @@ W [ \t\r]
 "true"		{ return T_true; }
 "var"		{ return T_var; }
 
-"<>"		{return T_not_equal; }
-"<="		{return T_smaller_equal; }
-">="		{return T_bigger_equal; }
-":="		{return T_set_value; }
+"<>"		{ return T_not_equal; }
+"<="		{ return T_smaller_equal; }
+">="		{ return T_bigger_equal; }
+":="		{ return T_set_value; }
 
 [()+\-*/%!&|=<>\[\],:] { return yytext[0]; }
 
-'{L}'		{ printf("ues\n");return yytext[1]; }
+'{L}'		{ return T_characters; }
+'{D}'		{ return T_characters; }
+'\\x({Lh}|{D})({Lh}|{D})'	{ 
+
+	int to_number(char c){
+		if      (c >= 'a' && c <= 'f')  return c - 'a';
+		else if (c >= 'A' && c <= 'F')  return c - 'A';
+		return c - '0';
+	}
+	
+	char c1 = to_number(yytext[3]);
+	char c2 = to_number(yytext[4]);
+	yytext[1] = c1*16 + c2;
+	return T_characters; }
 
 {L}({L}|{D})*	{ return T_id; }
 {D}+    	{ return T_const; }
@@ -115,10 +129,10 @@ int main () {
 	int token;
 	do {
 		token = yylex();
-		printf("token=%d, lexeme=\"%s\"\n", token, yytext);
+		if (token != T_characters)
+			printf("token=%d, lexeme=\"%s\"\n", token, yytext);
+		else
+			printf("token=%d, lexeme=\"%c\"\n", token, yytext[1]);
 	} while (token != T_eof);
-	printf("num_comment is %d\n" , num_comment);
-	if (num_comment!=0)
-		printf("Plesase insert a valid number of start and close comments\n");
 	return 0;
 }
