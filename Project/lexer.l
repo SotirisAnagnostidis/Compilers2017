@@ -34,12 +34,17 @@
 #define T_const 1030
 
 int countlines = 1;
+int num_comments;
+
 %}
 
 
 L [a-zA-Z]
 D [0-9]
 W [ \t\r]
+
+%s comment
+%s string
 
 %%
 
@@ -82,12 +87,26 @@ W [ \t\r]
 
 '\x2a'		{ printf("hex!!\n"); }
 
+\"		{BEGIN(string); }
+<string>[^"\n]*	{printf("new character\n");}
+<string>\n	{countlines++;}
+<string>\\\"	
+<string>\"	{BEGIN(0);}
+
+"(*"		{BEGIN(comment); }
+<comment>[^*\n]* {/* eat anything that’s not a ’*’ */}
+<comment>"*"+[^*)\n]* {/* eat up ’*’s not followed by ’/’s */}
+<comment>\n 	{countlines++; }
+<comment>"*"+")"	{BEGIN(0); }	
+
 #.*\n		{ countlines++; } 
+
+
 
 {W}+    	{ /* nothing */ }
 [\n]		{ countlines++; }
 
-.		{ printf("symbol %s in line %d not recognized\n" , yytext ,countlines ); exit(1); }	
+.		{ printf("symbol %s in line %d not recognized\n" , yytext ,countlines ); }
 
 
 %%
