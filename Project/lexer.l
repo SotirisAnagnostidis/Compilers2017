@@ -12,7 +12,7 @@
 #define T_else 1010
 #define T_end 1011
 #define T_exit 1012
-#define T_false 1013
+#define T_false 0
 #define T_if 1014
 #define T_is 1015
 #define T_int 1016
@@ -22,7 +22,7 @@
 #define T_ref 1020
 #define T_return 1021
 #define T_skip 1022
-#define T_true 1023
+#define T_true 1
 #define T_var 1024
 
 #define T_not_equal 1025
@@ -32,9 +32,11 @@
 
 #define T_id 1029
 #define T_const 1030
+#define T_characters 1031
 
 int countlines = 1;
-int num_comments;
+int num_comment;
+int num_eisagwgika;
 
 %}
 
@@ -43,8 +45,8 @@ L [a-zA-Z]
 D [0-9]
 W [ \t\r]
 
-%s comment
-%s string
+%x comment
+%x string
 
 %%
 
@@ -80,24 +82,22 @@ W [ \t\r]
 
 [()+\-*/%!&|=<>\[\],:] { return yytext[0]; }
 
-\'.*\n       	{ /* nothing */ }
+'{L}'		{ printf("ues\n");return yytext[1]; }
 
-{L}      	{ return T_id; }
+{L}({L}|{D})*	{ return T_id; }
 {D}+    	{ return T_const; }
 
-'\x2a'		{ printf("hex!!\n"); }
 
-\"		{BEGIN(string); }
-<string>[^"\n]*	{printf("new character\n");}
-<string>\n	{countlines++;}
-<string>\\\"	
-<string>\"	{BEGIN(0);}
 
-"(*"		{BEGIN(comment); }
-<comment>[^*\n]* {/* eat anything that’s not a ’*’ */}
-<comment>"*"+[^*)\n]* {/* eat up ’*’s not followed by ’/’s */}
+
+
+"(*"		{num_comment = 0; BEGIN(comment); }
+<comment>[^*(\n]* {/* eat anything that’s not a ’*’ */ }
+<comment>"("+[^(*\n]* 
+<comment>"*"+[^*)\n]* 
+<comment>"("+"*" {num_comment++; }
 <comment>\n 	{countlines++; }
-<comment>"*"+")"	{BEGIN(0); }	
+<comment>"*"+")" { if (num_comment==0) BEGIN(0); else num_comment--; }	
 
 #.*\n		{ countlines++; } 
 
@@ -112,10 +112,13 @@ W [ \t\r]
 %%
 
 int main () {
-  int token;
-  do {
-    token = yylex();
-    printf("token=%d, lexeme=\"%s\"\n", token, yytext);
-  } while (token != T_eof);
-  return 0;
+	int token;
+	do {
+		token = yylex();
+		printf("token=%d, lexeme=\"%s\"\n", token, yytext);
+	} while (token != T_eof);
+	printf("num_comment is %d\n" , num_comment);
+	if (num_comment!=0)
+		printf("Plesase insert a valid number of start and close comments\n");
+	return 0;
 }
