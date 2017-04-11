@@ -37,17 +37,24 @@
         
 	
 	#define MAX_STRING_SIZE 256	
-	#define TAB_SIZE 8	
+	#define TAB_SIZE 8
 	int countlines = 1;
 	int num_comment;
 	int num_eisagwgika;
 	int kena;
-	int begin_exists;
+	int statements = 0;
+	int token;
 
 	
+	static void yyunput (int c, char * yy_bp );
+
 	typedef struct node {
 		struct node* next;
 		int beggining;
+		short has_begin;
+		int statements;
+		short pseudo_begin;
+		short is_def;
 	} Node;
 
 	typedef Node* stack;
@@ -57,8 +64,6 @@
 		Node* temp = S;		
 		S = S->next;
 		free(temp);
-		//yytext = "end"
-		
 	}
 
 	int isempty(){
@@ -69,31 +74,45 @@
 	}
 	
 	void push(int spaces){
-		printf("begin\n");
 		Node* new = malloc(sizeof(Node));
 		new->next = S;
 		new->beggining = spaces;
+		new->statements = 0;
+		new->has_begin = 0;
+		new->pseudo_begin = 0;
+		new->is_def = 0;
 		S = new;
 	}
 
-	void checkit (int sp) {
-		if (S==NULL)
-			printf("vlakeia\n");	
-		if (S->beggining < sp) return;
-		else {
-			printf("end\n");
-			pop();
-			checkit(sp); 
-		}
+	int checkit(int sp) {
+		if (isempty())
+			printf("Something went wrong with blocks at line %d\n",countlines);	
+		if (S->beggining < sp) return 0;
+		return 1;
 	}
 
-	void check(int sp){
-		if (begin_exists==1)
-			return;
-		checkit(sp);
+	int check(int sp){
+		//printf("started CHECK_LAST by %s for %d kena" , yytext , sp);
+		//if (isempty())
+		//	printf("\n");
+		//else
+		//	printf("..first on the stack is %d\n", S->beggining);
+		return checkit(sp);
 	}
-
 	
+	void read_again(){
+		int i;
+		/* Copy yytext because unput() trashes yytext */
+		char *yycopy = strdup( yytext );		
+		for ( i = yyleng - 1; i >= 0; --i )
+			unput(yycopy[i]);
+		free(yycopy);
+	}	
+	
+	#define CHECK_LAST if(S->has_begin == 0 && check(kena)){if(S->pseudo_begin == 0){S->pseudo_begin = 1; read_again(); yytext = "begin"; return T_begin;} read_again(); yytext="end"; pop(); return T_end; }
+	#define CHECK_FIRST if(S->statements <= 1 && S->has_begin == 0 && S->pseudo_begin == 0){read_again(); yytext="begin"; S->pseudo_begin = 1; return T_begin; } 
+	#define ALL_CKECKS CHECK_FIRST S->statements++; CHECK_LAST
+
 %}
 
 
@@ -109,54 +128,55 @@ Lh [a-fA-F]
 
 "and"		{ return T_and; }
 "as"		{ return T_as; }
-"begin" 	{ begin_exists = 1;return T_begin; }
-"break"		{ check(kena); return T_break; }	
+"begin" 	{ S->statements = 0; S->has_begin = 1; return T_begin; }
+"break"		{ ALL_CKECKS return T_break; }	
 "byte"		{ return T_byte; }
-"continue"	{ check(kena); return T_continue; }
-"decl"		{ return T_decl; }
-"def"		{ begin_exists = 0; push(kena); return T_def; }
-"elif"		{ check(kena); begin_exists = 0; push(kena); return T_elif; }
-"else"		{ check(kena); begin_exists = 0; push(kena); return T_else; }
-"end"		{ return T_end; }
-"exit"		{ check(kena); return T_exit; }
+"continue"	{ ALL_CKECKS return T_continue; }
+"decl"		{ ALL_CKECKS push(kena); S->is_def=1; return T_decl; }
+"def"		{ if(!isempty()){ALL_CKECKS push(kena);}else{push(kena); S->statements++;} S->is_def=1; return T_def; }
+"elif"		{ ALL_CKECKS push(kena); return T_elif; }
+"else"		{ ALL_CKECKS push(kena); return T_else; }
+"end"		{ pop(); return T_end; }
+"exit"		{ ALL_CKECKS return T_exit; }
 "false"		{ return T_false; }
-"if"		{ check(kena); begin_exists = 0; push(kena); return T_if; }
+"if"		{ ALL_CKECKS push(kena); return T_if; }
 "is"		{ return T_is; }
 "int"		{ return T_int; }
-"loop"		{ check(kena); begin_exists = 0; push(kena); return T_loop; }
+"loop"		{ ALL_CKECKS push(kena); return T_loop; }
 "not"		{ return T_not; }
 "or"		{ return T_or; }
 "ref"		{ return T_ref; }
-"return"	{ check(kena); return T_return; }
-"skip"		{ check(kena); return T_skip; }
+"return"	{ ALL_CKECKS return T_return; }
+"skip"		{ ALL_CKECKS return T_skip; }
 "true"		{ return T_true; }
 "var"		{ return T_var; }
-
 "<>"		{ return T_not_equal; }
 "<="		{ return T_less_equal; }
 ">="		{ return T_greater_equal; }
-":="		{ return T_set_value; }
+":="		{ statements++; return T_set_value; }
 
 [()+\-*/%!&|=<>\[\],:] { return yytext[0]; }
 
 '{L}'		{ return T_characters; }
 '{D}'		{ return T_characters; }
-'\\x({Lh}|{D})({Lh}|{D})'	{ 
-
-	int to_number(char c){
-		if      (c >= 'a' && c <= 'f')  return c - 'a';
-		else if (c >= 'A' && c <= 'F')  return c - 'A';
-		return c - '0';
-	}
+'\\x({Lh}|{D})({Lh}|{D})'	{
+		int to_number(char c){
+			if      (c >= 'a' && c <= 'f')  return c - 'a';
+			else if (c >= 'A' && c <= 'F')  return c - 'A';
+			return c - '0';
+		}
 	
-	char c1 = to_number(yytext[3]);
-	char c2 = to_number(yytext[4]);
-	yytext[1] = c1*16 + c2;
-	return T_characters; }
+		char c1 = to_number(yytext[3]);
+		char c2 = to_number(yytext[4]);
+		yytext[1] = c1*16 + c2;
+		return T_characters; }
 '[\n\t\r\0\\\'\"]' {return T_characters; }
 
 
-{L}({L}|{D})*	{ check(kena); return T_id; }
+{L}({L}|{D})*	{
+			char *temp = yytext;			
+				
+			if(token!=T_def && token!=T_decl && token!=',' && token!=T_if && token!=T_elif && token!=T_not_equal && token!=T_greater_equal && token!=T_less_equal){ALL_CKECKS} return T_id; }
 {D}+    	{ return T_const; }
 
 
@@ -187,14 +207,17 @@ Lh [a-fA-F]
 %%
 
 int main () {
-	int token;
 	do {
 		token = yylex();
+		if (token ==T_eof && !isempty()){
+			token = T_eof;
+			yytext = "end";
+		}
 		if (token != T_characters)
 			printf("token=%d, lexeme=\"%s\"\n", token, yytext);
 		else
 			printf("token=%d, lexeme=\"%c\"\n", token, yytext[1]);
-		kena += strlen(yytext);
+		//printf("statements: %d begin_exists: %d pesudo_begin: %d\n", S->statements , S->has_begin,S->pseudo_begin);
 	} while (token != T_eof);
 	if (num_comment != 0) 
 		printf("Not equal number of comments\n");
