@@ -136,7 +136,7 @@ Lh [a-fA-F]
 "def"		{ if(!isempty()){ALL_CKECKS push(kena);}else{push(kena); S->statements++;} S->is_def=1; return T_def; }
 "elif"		{ ALL_CKECKS push(kena); return T_elif; }
 "else"		{ ALL_CKECKS push(kena); return T_else; }
-"end"		{ pop(); return T_end; }
+"end"		{ if(isempty()){printf("Not a begin corresponding to end at line %d\n" , countlines);exit(1);} if(!S->has_begin){read_again(); yytext="end"; pop(); return T_end;}pop(); return T_end; }
 "exit"		{ ALL_CKECKS return T_exit; }
 "false"		{ return T_false; }
 "if"		{ ALL_CKECKS push(kena); return T_if; }
@@ -173,8 +173,7 @@ Lh [a-fA-F]
 '[\n\t\r\0\\\'\"]' {return T_characters; }
 
 
-{L}({L}|{D})*	{
-			char *temp = yytext;			
+{L}({L}|{D})*	{		
 				
 			if(token!=T_def && token!=T_decl && token!=',' && token!=T_if && token!=T_elif && token!=T_not_equal && token!=T_greater_equal && token!=T_less_equal){ALL_CKECKS} return T_id; }
 {D}+    	{ return T_const; }
