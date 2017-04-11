@@ -34,15 +34,66 @@
 	#define T_const 1030
 	#define T_characters 1031
 	#define T_string 1032
-
+        
 	
 	#define MAX_STRING_SIZE 256	
+	#define TAB_SIZE 8	
 	int countlines = 1;
 	int num_comment;
 	int num_eisagwgika;
+	int kena;
+	int begin_exists;
 
-	char string_buf[MAX_STRING_SIZE];
-	char *string_buf_ptr;
+	
+	typedef struct node {
+		struct node* next;
+		int beggining;
+	} Node;
+
+	typedef Node* stack;
+	stack S=NULL;
+	
+	void pop(){
+		Node* temp = S;		
+		S = S->next;
+		free(temp);
+		//yytext = "end"
+		
+	}
+
+	int isempty(){
+		if (S==NULL)
+			return 1;
+		else
+			return 0;
+	}
+	
+	void push(int spaces){
+		printf("begin\n");
+		Node* new = malloc(sizeof(Node));
+		new->next = S;
+		new->beggining = spaces;
+		S = new;
+	}
+
+	void checkit (int sp) {
+		if (S==NULL)
+			printf("vlakeia\n");	
+		if (S->beggining < sp) return;
+		else {
+			printf("end\n");
+			pop();
+			checkit(sp); 
+		}
+	}
+
+	void check(int sp){
+		if (begin_exists==1)
+			return;
+		checkit(sp);
+	}
+
+	
 %}
 
 
@@ -58,26 +109,26 @@ Lh [a-fA-F]
 
 "and"		{ return T_and; }
 "as"		{ return T_as; }
-"begin" 	{ return T_begin; }
-"break"		{ return T_break; }	
+"begin" 	{ begin_exists = 1;return T_begin; }
+"break"		{ check(kena); return T_break; }	
 "byte"		{ return T_byte; }
-"continue"	{ return T_continue; }
+"continue"	{ check(kena); return T_continue; }
 "decl"		{ return T_decl; }
-"def"		{ return T_def; }
-"elif"		{ return T_elif; }
-"else"		{ return T_else; }
+"def"		{ begin_exists = 0; push(kena); return T_def; }
+"elif"		{ check(kena); begin_exists = 0; push(kena); return T_elif; }
+"else"		{ check(kena); begin_exists = 0; push(kena); return T_else; }
 "end"		{ return T_end; }
-"exit"		{ return T_exit; }
+"exit"		{ check(kena); return T_exit; }
 "false"		{ return T_false; }
-"if"		{ return T_if; }
+"if"		{ check(kena); begin_exists = 0; push(kena); return T_if; }
 "is"		{ return T_is; }
 "int"		{ return T_int; }
-"loop"		{ return T_loop; }
+"loop"		{ check(kena); begin_exists = 0; push(kena); return T_loop; }
 "not"		{ return T_not; }
 "or"		{ return T_or; }
 "ref"		{ return T_ref; }
-"return"	{ return T_return; }
-"skip"		{ return T_skip; }
+"return"	{ check(kena); return T_return; }
+"skip"		{ check(kena); return T_skip; }
 "true"		{ return T_true; }
 "var"		{ return T_var; }
 
@@ -105,7 +156,7 @@ Lh [a-fA-F]
 '[\n\t\r\0\\\'\"]' {return T_characters; }
 
 
-{L}({L}|{D})*	{ return T_id; }
+{L}({L}|{D})*	{ check(kena); return T_id; }
 {D}+    	{ return T_const; }
 
 
@@ -124,8 +175,9 @@ Lh [a-fA-F]
 
 
 
-{W}+    	{ /* nothing */ }
-[\n]		{ countlines++; }
+[ ]	    	{ kena++;}
+[\t]		{ kena+=TAB_SIZE; }
+[\n]		{ kena=0; countlines++; }
 
 
 "*)"		{ printf("At line %d a comment closed that never opened\n" , countlines); }
@@ -142,6 +194,7 @@ int main () {
 			printf("token=%d, lexeme=\"%s\"\n", token, yytext);
 		else
 			printf("token=%d, lexeme=\"%c\"\n", token, yytext[1]);
+		kena += strlen(yytext);
 	} while (token != T_eof);
 	if (num_comment != 0) 
 		printf("Not equal number of comments\n");
