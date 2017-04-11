@@ -12,7 +12,7 @@
 #define T_else 1010
 #define T_end 1011
 #define T_exit 1012
-#define T_false 1013
+#define T_false 0
 #define T_if 1014
 #define T_is 1015
 #define T_int 1016
@@ -22,7 +22,7 @@
 #define T_ref 1020
 #define T_return 1021
 #define T_skip 1022
-#define T_true 1023
+#define T_true 1
 #define T_var 1024
 
 #define T_not_equal 1025
@@ -32,9 +32,11 @@
 
 #define T_id 1029
 #define T_const 1030
+#define T_characters 1031
 
 int countlines = 1;
-int num_comment= 0;
+int num_comment;
+int num_eisagwgika;
 
 %}
 
@@ -42,6 +44,7 @@ int num_comment= 0;
 L [a-zA-Z]
 D [0-9]
 W [ \t\r]
+Lh [a-fA-F]
 
 %x comment
 %x string
@@ -73,33 +76,40 @@ W [ \t\r]
 "true"		{ return T_true; }
 "var"		{ return T_var; }
 
-"<>"		{return T_not_equal; }
-"<="		{return T_smaller_equal; }
-">="		{return T_bigger_equal; }
-":="		{return T_set_value; }
+"<>"		{ return T_not_equal; }
+"<="		{ return T_smaller_equal; }
+">="		{ return T_bigger_equal; }
+":="		{ return T_set_value; }
 
 [()+\-*/%!&|=<>\[\],:] { return yytext[0]; }
 
-\'.*\n       	{ /* nothing */ }
+'{L}'		{ return T_characters; }
+'{D}'		{ return T_characters; }
+'\\x({Lh}|{D})({Lh}|{D})'	{ 
 
-{L}      	{ return T_id; }
+	int to_number(char c){
+		if      (c >= 'a' && c <= 'f')  return c - 'a';
+		else if (c >= 'A' && c <= 'F')  return c - 'A';
+		return c - '0';
+	}
+	
+	char c1 = to_number(yytext[3]);
+	char c2 = to_number(yytext[4]);
+	yytext[1] = c1*16 + c2;
+	return T_characters; }
+
+{L}({L}|{D})*	{ return T_id; }
 {D}+    	{ return T_const; }
 
-'\x2a'		{ printf("hex!!\n"); }
+'
 
-\"		{BEGIN(string); }
-<string>[^"\n]*	{printf("new character\n");}
-<string>\n	{countlines++;}
-<string>\\\"	
-<string>\"	{BEGIN(0);}
-
-"(*"		{num_comment++; BEGIN(comment); }
+"(*"		{num_comment = 1; BEGIN(comment); }
 <comment>[^*(\n]* {/* eat anything that’s not a ’*’ */ }
 <comment>"("+[^(*\n]* 
 <comment>"*"+[^*)\n]* 
 <comment>"("+"*" {num_comment++; }
 <comment>\n 	{countlines++; }
-<comment>"*"+")" { if (num_comment==1) BEGIN(0); else num_comment--; printf("a comment has finished\n"); }	
+<comment>"*"+")" { if (num_comment==0) BEGIN(0); else num_comment--; }	
 
 #.*\n		{ countlines++; } 
 
@@ -114,10 +124,14 @@ W [ \t\r]
 %%
 
 int main () {
-  int token;
-  do {
-    token = yylex();
-    printf("token=%d, lexeme=\"%s\"\n", token, yytext);
-  } while (token != T_eof);
-  return 0;
+	int token;
+	do {
+		token = yylex();
+		if (token != T_characters)
+			printf("token=%d, lexeme=\"%s\"\n", token, yytext);
+		else
+			printf("token=%d, lexeme=\"%c\"\n", token, yytext[1]);
+	} while (token != T_eof);
+	if (num_comment != 0) printf("not equal comments\n");
+	return 0;
 }
