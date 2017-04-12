@@ -45,8 +45,6 @@
 	int statements = 0;
 	int token;
 	char *temp;
-	int l_value_check = 0;
-	int newtoken;
 
 	
 	static void yyunput (int c, char * yy_bp );
@@ -62,14 +60,11 @@
 
 	typedef Node* stack;
 	stack S=NULL;
-	Node* last_pop;
 	
 	void pop(){
 		Node* temp = S;		
 		S = S->next;
-		if (last_pop!=NULL && last_pop!=temp)
-			free(last_pop);
-		last_pop = temp;
+		free(temp);
 	}
 
 	int isempty(){
@@ -109,39 +104,81 @@
 	void read_again(){
 		int i;
 		/* Copy yytext because unput() trashes yytext */
-		char *yycopy;
-		yycopy = strdup( yytext );		
+		char *yycopy = strdup( yytext );		
 		for ( i = yyleng - 1; i >= 0; --i )
 			unput(yycopy[i]);
-		if (copy_again){
-			yycopy = strdup( temp );		
-			for ( i = strlen(temp) - 1; i >= 0; --i )
-				unput(yycopy[i]);
-		}
 		free(yycopy);
 	}	
-	
-	char* return_id(char *temp){
+
+	void return_id(char *temp){
 		int i=0;
-		while (temp[i]!=' ' && temp[i]!='\t' && temp[i]!='\n'){
-			yytext[i] = temp[i++];
+		while (temp[i]!=' '&& temp[i]!='(' && temp[i]!=':' && temp[i]!='\t' && temp[i]!='\n'){
+			i++;
 		}
-		yytext[++i] = '\0';
+		i++;
+		yytext = malloc(i*sizeof(char));
+		i=0;
+		while (temp[i]!=' ' && temp[i]!='(' && temp[i]!='\t' && temp[i]!='\n'){
+			yytext[i] = temp[i];
+			i++;
+		}
+		yytext[i] = '\0';
 	}
 
+	void return_string(char *temp){
+		int i=1;
+		while (temp[i]!='\"' || temp[i-1]=='\''){
+			i++;
+		}
+		i+=2;
+		yytext = malloc(i*sizeof(char));
+		yytext[0] = '\"';
+		i=1;
+		while (temp[i]!='\"' || temp[i-1]=='\''){
+			yytext[i] = temp[i];
+			i++;
+		}
+		yytext[i] = '\"';
+		yytext[++i] = '\0';
+	}
+	
+	
 	void rewrite_set_value(){
 		unput('=');
 		unput(':');
 	}
+
+	typedef struct list{
+		struct list *next;
+		char *name;
+	} List;
+
+	List *start;
 	
-	#define CHECK_LAST if(S->has_begin == 0 && check(kena)){\
-		if(S->pseudo_begin == 0){S->pseudo_begin = 1; read_again(); yytext = "begin";return T_begin;}\
-		 read_again(); yytext="end"; pop(); return T_end; }
-	#define CHECK_FIRST if(S->statements <= 1 && S->has_begin == 0 && S->pseudo_begin == 0){\
-		read_again(); yytext="begin"; S->pseudo_begin = 1; return T_begin; } 
-	#define ALL_CKECKS if (isempty()){ printf("No block corresponding to line %d\n",countlines); exit(1);}\
-		 CHECK_FIRST S->statements++; CHECK_LAST
-	#define L_VALUE_CHECK temp = malloc(sizeof(char)*strlen(yytext)); temp = strdup(yytext); yytext = return_id(temp); rewrite_set_value();
+	void add_to_list(){
+		List *new = malloc(sizeof(List));
+		new->next = start;
+		new->name = strdup(yytext);
+		start = new;
+	}
+	
+	int in_list(){
+		List* iter = start;
+		while (iter!=NULL){
+			if (strcmp(iter->name,yytext)==0)
+				return 1;
+			iter = iter->next;
+		}
+		return 0;
+	}
+	
+	#define CHECK_LAST if(S->has_begin == 0 && check(kena)){if(S->pseudo_begin == 0){S->pseudo_begin = 1; read_again(); yytext = "begin"; return T_begin;} read_again(); yytext="end"; pop(); return T_end; }
+	#define CHECK_FIRST if(S->statements <= 1 && S->has_begin == 0 && S->pseudo_begin == 0){read_again(); yytext="begin"; S->pseudo_begin = 1; return T_begin; } 
+	#define ALL_CKECKS CHECK_FIRST S->statements++; CHECK_LAST
+	#define L_VALUE_CHECK temp = strdup(yytext); return_id(temp); rewrite_set_value(); ALL_CKECKS
+	#define L_VALUE_CHECK_STRING temp = strdup(yytext); return_string(temp);rewrite_set_value(); ALL_CKECKS
+%}
+
 
 L [a-zA-Z]
 D [0-9]
@@ -197,26 +234,27 @@ Lh [a-fA-F]
 		char c2 = to_number(yytext[4]);
 		yytext[1] = c1*16 + c2;
 		return T_characters; }
+'[\n\t\r\0\\\'\"]' {return T_characters; }
 
-'[\n\t\r\0\\\'\"]' 	{ return T_characters; }
+{L}({L}|{D})*{W}*":="	{ /*set value to an id so it is an statement*/L_VALUE_CHECK return T_id; }
+{L}({L}|{D})*{W}*"(" 	{ /*in this case not a statement*/ temp = strdup(yytext); ;return_id(temp); unput('('); return T_id;}
 
-
-{L}({L}|{D})*{W}*":="   { L_VALUE_CHECK ALL_CKECKS return T_id;}
-{L}({L}|{D})*		{ return T_id; }
-
+{L}({L}|{D})*		{ if (token==T_decl || token==T_def){add_to_list();}else{if(in_list()){ ALL_CKECKS } } return T_id; }
 {D}+    		{ return T_const; }
 
 
-\"([^\\\"]|\\.)*\"  	{return T_string;}
+\"([^\\\"]|\\.)*\"{W}*":=" {L_VALUE_CHECK_STRING return T_id; }
+
+\"([^\\\"]|\\.)*\"  {return T_string;}
 
 
-"(*"			{num_comment = 1; BEGIN(comment); }
-<comment>[^*(\n]* 	{/* eat anything that’s not a ’*’ or '(' */ }
+"(*"		{num_comment = 1; BEGIN(comment); }
+<comment>[^*(\n]* {/* eat anything that’s not a ’*’ */ }
 <comment>"("+[^(*\n]* 
 <comment>"*"+[^*)\n]* 
-<comment>"("+"*" 	{num_comment++; }
-<comment>\n 		{countlines++; }
-<comment>"*"+")" 	{num_comment--; if (num_comment==0) BEGIN(0);  }	
+<comment>"("+"*" {num_comment++; }
+<comment>\n 	{countlines++; }
+<comment>"*"+")" {num_comment--; if (num_comment==0) BEGIN(0);  }	
 
 #.*\n		{ countlines++; } 
 
@@ -234,6 +272,8 @@ Lh [a-fA-F]
 %%
 
 int main () {
+	token = 0;
+	start = NULL;
 	do {
 		token = yylex();
 		if (token ==T_eof && !isempty()){
