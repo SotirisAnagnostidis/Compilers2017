@@ -12,7 +12,7 @@
 	#define T_else 1010
 	#define T_end 1011
 	#define T_exit 1012
-	#define T_false 0
+	#define T_false 1013
 	#define T_if 1014
 	#define T_is 1015
 	#define T_int 1016
@@ -22,7 +22,7 @@
 	#define T_ref 1020
 	#define T_return 1021
 	#define T_skip 1022
-	#define T_true 1
+	#define T_true 1023
 	#define T_var 1024
 
 	#define T_not_equal 1025
@@ -49,6 +49,11 @@
 	
 	static void yyunput (int c, char * yy_bp );
 
+	typedef struct list{
+		struct list *next;
+		char *name;
+	} List;	
+
 	typedef struct node {
 		struct node* next;
 		int beggining;
@@ -56,6 +61,7 @@
 		int statements;
 		short pseudo_begin;
 		short is_def;
+		List* definitions;
 	} Node;
 
 	typedef Node* stack;
@@ -82,6 +88,7 @@
 		new->has_begin = 0;
 		new->pseudo_begin = 0;
 		new->is_def = 0;
+		new->definitions = NULL;
 		S = new;
 	}
 
@@ -112,17 +119,22 @@
 
 	void return_id(char *temp){
 		int i=0;
-		while (temp[i]!=' '&& temp[i]!='(' && temp[i]!=':' && temp[i]!='\t' && temp[i]!='\n'){
+		while (temp[i]!=' '&& temp[i]!='[' && temp[i]!='(' && temp[i]!=':' && temp[i]!='\t' && temp[i]!='\n'){
 			i++;
 		}
 		i++;
 		yytext = malloc(i*sizeof(char));
 		i=0;
-		while (temp[i]!=' ' && temp[i]!='(' && temp[i]!='\t' && temp[i]!='\n'){
+		while (temp[i]!=' '&& temp[i]!='['  && temp[i]!='(' && temp[i]!='\t' && temp[i]!='\n'){
 			yytext[i] = temp[i];
 			i++;
 		}
 		yytext[i] = '\0';
+		int j = strlen(temp) - 1;
+		while (j>=i){
+			unput(temp[j]);
+			j--;
+		}
 	}
 
 	void return_string(char *temp){
@@ -147,27 +159,24 @@
 		unput('=');
 		unput(':');
 	}
-
-	typedef struct list{
-		struct list *next;
-		char *name;
-	} List;
-
-	List *start;
 	
 	void add_to_list(){
 		List *new = malloc(sizeof(List));
-		new->next = start;
+		new->next = S->next->definitions;
 		new->name = strdup(yytext);
-		start = new;
+		S->next->definitions = new;
 	}
 	
 	int in_list(){
-		List* iter = start;
-		while (iter!=NULL){
-			if (strcmp(iter->name,yytext)==0)
-				return 1;
-			iter = iter->next;
+		Node* stack = S;
+		while (stack!=NULL){
+			List* iter = stack->definitions;
+			while (iter!=NULL){
+				if (strcmp(iter->name,yytext)==0)
+					return 1;
+				iter = iter->next;
+			}
+			stack = stack->next;
 		}
 		return 0;
 	}
@@ -175,8 +184,9 @@
 	#define CHECK_LAST if(S->has_begin == 0 && check(kena)){if(S->pseudo_begin == 0){S->pseudo_begin = 1; read_again(); yytext = "begin"; return T_begin;} read_again(); yytext="end"; pop(); return T_end; }
 	#define CHECK_FIRST if(S->statements <= 1 && S->has_begin == 0 && S->pseudo_begin == 0){read_again(); yytext="begin"; S->pseudo_begin = 1; return T_begin; } 
 	#define ALL_CKECKS CHECK_FIRST S->statements++; CHECK_LAST
-	#define L_VALUE_CHECK temp = strdup(yytext); return_id(temp); rewrite_set_value(); ALL_CKECKS
-	#define L_VALUE_CHECK_STRING temp = strdup(yytext); return_string(temp);rewrite_set_value(); ALL_CKECKS
+	#define L_VALUE_CHECK temp = strdup(yytext); ALL_CKECKS return_id(temp); 
+	#define L_VALUE_CHECK_STRING temp = strdup(yytext); return_string(temp); rewrite_set_value(); ALL_CKECKS
+	#define L_VALUE_CHECK_ARRAY temp = strdup(yytext); ALL_CKECKS return_id(temp);
 %}
 
 
@@ -197,7 +207,7 @@ Lh [a-fA-F]
 "byte"		{ return T_byte; }
 "continue"	{ ALL_CKECKS return T_continue; }
 "decl"		{ ALL_CKECKS push(kena); S->is_def=1; return T_decl; }
-"def"		{ if(!isempty()){ALL_CKECKS push(kena);}else{push(kena); S->statements++;} S->is_def=1; return T_def; }
+"def"		{ if(!isempty()){ALL_CKECKS push(kena);} S->is_def=1; return T_def; }
 "elif"		{ ALL_CKECKS push(kena); return T_elif; }
 "else"		{ ALL_CKECKS push(kena); return T_else; }
 "end"		{ if(isempty()){printf("Not a begin corresponding to end at line %d\n" , countlines);exit(1);} if(!S->has_begin){read_again(); yytext="end"; pop(); return T_end;}pop(); return T_end; }
@@ -234,10 +244,20 @@ Lh [a-fA-F]
 		char c2 = to_number(yytext[4]);
 		yytext[1] = c1*16 + c2;
 		return T_characters; }
-'[\n\t\r\0\\\'\"]' {return T_characters; }
+'[\n\t\r\0\\\'\"]' 	{return T_characters; }
+\'\\0\'			{return T_characters; }
+\'\\n\'			{return T_characters; }
+\'\\t\'			{return T_characters; }
+\'\\r\'			{return T_characters; }
+\'\\\\\'			{return T_characters; }
+\'\\\'\'			{return T_characters; }
+\'\\\"\'			{return T_characters; }		
 
-{L}({L}|{D})*{W}*":="	{ /*set value to an id so it is an statement*/L_VALUE_CHECK return T_id; }
-{L}({L}|{D})*{W}*"(" 	{ /*in this case not a statement*/ temp = strdup(yytext); ;return_id(temp); unput('('); return T_id;}
+
+
+{L}({L}|{D})*{W}*("["{W}*(({L}({L}|{D})*)|{D}+){W}*"]"{W}*)?":="	{ /*set value to an id so it is an statement*/ L_VALUE_CHECK_ARRAY  return T_id; }
+{L}({L}|{D})*{W}*"(" 	{ /*in this case not a statement*/ temp = strdup(yytext); ;return_id(temp); return T_id;}
+
 
 {L}({L}|{D})*		{ if (token==T_decl || token==T_def){add_to_list();}else{if(in_list()){ ALL_CKECKS } } return T_id; }
 {D}+    		{ return T_const; }
@@ -266,24 +286,30 @@ Lh [a-fA-F]
 
 
 "*)"		{ printf("At line %d a comment closed that never opened\n" , countlines); }
-.		{ printf("symbol %s in line %d not recognized\n" , yytext ,countlines ); }
+.		{ printf("symbol \'%s\' in line %d not recognized\n" , yytext ,countlines ); }
 
 
 %%
 
 int main () {
 	token = 0;
-	start = NULL;
+	S = NULL;
+	//Make a node in stack corresponding to global namespace
+	push(0);
+	S->statements = 5;
+	S->has_begin = 1;
+	int test_eof = 0;
 	do {
 		token = yylex();
-		if (token ==T_eof && !isempty()){
-			token = T_eof;
-			yytext = "end";
+		if (token ==T_eof && test_eof == 0){
+			unput('f');
+			unput('i');
+			unput('\n');
+			token = 1;
+			test_eof = 1;
+			continue;
 		}
-		if (token != T_characters)
-			printf("token=%d, lexeme=\"%s\"\n", token, yytext);
-		else
-			printf("token=%d, lexeme=\"%c\"\n", token, yytext[1]);
+		printf("token=%d, lexeme=\"%s\"\n", token, yytext);
 		//printf("statements: %d begin_exists: %d pesudo_begin: %d\n", S->statements , S->has_begin,S->pseudo_begin);
 	} while (token != T_eof);
 	if (num_comment != 0) 
