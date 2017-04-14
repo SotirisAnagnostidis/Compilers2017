@@ -255,7 +255,7 @@ Lh [a-fA-F]
 
 
 
-{L}({L}|{D})*{W}*("["{W}*(({L}({L}|{D})*)|{D}+){W}*"]"{W}*)?":="	{ /*set value to an id so it is an statement*/ L_VALUE_CHECK_ARRAY  return T_id; }
+{L}({L}|{D})*{W}*("[".*"]"{W}*)?":="	{ /*set value to an id so it is an statement*/ L_VALUE_CHECK_ARRAY  return T_id; }
 {L}({L}|{D})*{W}*"(" 	{ /*in this case not a statement*/ temp = strdup(yytext); ;return_id(temp); return T_id;}
 
 
