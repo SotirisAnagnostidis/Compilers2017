@@ -2,12 +2,14 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include "lexer.h"
+
 
 void yyerror (const char *msg);
-
 extern int countlines;
+extern stack S;
+extern char* yytext;
 %}
-
 
 %token T_and "and"
 %token T_def "def"
@@ -57,15 +59,25 @@ extern int countlines;
 %%
 
 program: 
-  funcdef
+   {printf("oooo\n");} funcdef
+;
+
+localdef_list:
+  /*nothing*/
+| localdef localdef_list
 ;
 
 funcdef: 
-  "def" header (local-def)* block
+  {printf("found a def\n");}  {printf("found a def2\n");} localdef_list {printf("found a def3\n");}  block  {printf("found a def4\n");}
 ;
 
+fpardef_list:
+  /*nothing*/
+| ',' fpardef fpardef_list
+;
+  
 header: 
-  T_id [ "is" datatype ] [ ":" fpardef ( "," fpardef)* ]
+  T_id "is" datatype ':' fpardef fpardef_list 
 ;
 
 id_list:
@@ -87,14 +99,19 @@ datatype:
 | "byte"
 ;
 
+type_list:
+  /*nothing*/
+|'[' T_const ']' type_list
+;
+
 type:
-  datatype ("["T_const"]")*
+  datatype type_list
 ;
 
 fpartype:
   type 
 | "ref" datatype 
-| datatype "[" "]" ("["T_const"]")*
+| datatype '[' ']' type_list
 ;
 
 
@@ -113,52 +130,89 @@ vardef:
   "var" id_list "is" type
 ;
 
+
+st_list:
+  /*nothing*/
+| "elif" cond ':' block st_list
+;
+
 stmt:
   "skip" 
 | lvalue ":=" expr 
 | proccall 
 | "exit" 
-| "return" ":" expr
-| "if" cond ":" block ("elif" cond ":" block)*  ["else" ":" block]
-| "loop" [T_id] ":" block 
-| "break" [ ":" T_id ] 
-| "continue" [ ":" T_id ]
+| "return" ':' expr
+| "if" cond ':' block st_list  "else" ':' block
+| "loop" T_id ':' block 
+| "break" ':' T_id  
+| "continue" ':' T_id 
 ;
 
 block:
-  "begin" stmt_list "end" 
+  {printf("%s\n",yytext);} "begin" {printf("found\n");} stmt_list "end" 
+;
+
+exprlist:
+  /*nothing*/
+| ',' expr exprlist
 ;
 
 proccall:
-  T_id [":" expr ( "," expr )* ]
+  T_id ':' expr exprlist
 ;
 
 funccall: 
-  T_id "(" [expr ( "," expr )* ] ")"
+  T_id '(' expr exprlist  ')'
 ;
 
 lvalue: 
   T_id 
 | T_string 
-| lvalue "[" expr "]"
+| lvalue '[' expr ']'
 ;
 
 expr: 
   T_const 
 | lvalue
-| "(" expr ")" 
+| '(' expr ')' 
 | funccall
-| ( "+" | "-" ) expr 
-| expr ( "+" | "-" |  " * " | "/" | "%" ) expr
-| "true" | "false" | "!" expr | expr ( "&" | "|" ) expr
+| '+' expr 
+| '-' expr 
+| expr '+' expr
+| expr '-' expr
+| expr '*' expr
+| expr '/' expr
+| expr '%' expr
+| "true" | "false" | '!' expr | expr '&' expr | expr '|' expr
 ;
 
 cond:
   expr 
-| "(" cond ")"
+| '(' cond ')'
 | "not" cond 
-| cond ( "and" | "or" ) cond
-| expr ( "=" | "<>" | "<" | ">" | "<=" | ">=" ) ⟨expr⟩
+| cond "and" cond | cond  "or" cond
+| expr '=' expr | expr "<>" expr  | expr '<'  expr | expr '>' expr | expr "<=" expr | expr ">=" expr
 ;
 
 %%
+
+void yyerror (const char *msg) {
+  fprintf(stderr, "Minibasic error: %s\n", msg);
+  fprintf(stderr, "Aborting, I've had enough with line %d...\n",
+          countlines);
+  exit(1);
+}
+
+int main() {
+        S = NULL;
+	printf("parsing...\n");
+        //Make a node in stack corresponding to global namespace
+        push(0);
+        S->statements = 5;		//random nnumer
+        S->has_begin = 1;
+	//add_to_list("writeString");
+	if (yyparse()) return 1;
+	printf("Compilation was successful.\n");
+	return 0;
+}
+   
