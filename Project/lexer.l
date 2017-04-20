@@ -1,4 +1,7 @@
 %{
+	#include "parser.h"
+	#include "lexer.h"
+	
 	#define T_eof 0
 	#define T_and 1001
 	#define T_as 1002
@@ -49,22 +52,6 @@
 	
 	static void yyunput (int c, char * yy_bp );
 
-	typedef struct list{
-		struct list *next;
-		char *name;
-	} List;	
-
-	typedef struct node {
-		struct node* next;
-		int beggining;
-		char has_begin;
-		int statements;
-		char pseudo_begin;
-		char is_def;
-		List* definitions;
-	} Node;
-
-	typedef Node* stack;
 	stack S=NULL;
 		
 	void my_free(List *temp){
@@ -302,20 +289,3 @@ Lh [a-fA-F]
 
 %%
 
-int main () {
-	token = 0;
-	S = NULL;
-	//Make a node in stack corresponding to global namespace
-	push(0);
-	S->statements = 5;
-	S->has_begin = 1;
-	int test_eof = 0;
-	do {
-		token = yylex();
-		printf("token=%d, lexeme=\"%s\"\n", token, yytext);
-		//printf("statements: %d begin_exists: %d pesudo_begin: %d\n", S->statements , S->has_begin,S->pseudo_begin);
-	} while (token != T_eof);
-	if (num_comment != 0) 
-		printf("Not equal number of comments\n");
-	return 0;
-}
