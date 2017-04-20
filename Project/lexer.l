@@ -1,7 +1,6 @@
 %{
-	#include "parser.h"
-	#include "lexer.h"
-	
+	#include <stdio.h>	
+
 	#define T_eof 0
 	#define T_and 1001
 	#define T_as 1002
@@ -52,6 +51,22 @@
 	
 	static void yyunput (int c, char * yy_bp );
 
+	typedef struct list{
+		struct list *next;
+		char *name;
+	} List;	
+
+	typedef struct node {
+		struct node* next;
+		int beggining;
+		char has_begin;
+		int statements;
+		char pseudo_begin;
+		char is_def;
+		List* definitions;
+	} Node;
+
+	typedef Node* stack;
 	stack S=NULL;
 		
 	void my_free(List *temp){
@@ -162,16 +177,30 @@
 		S->next->definitions = new;
 	}
 	
+	void add_libraries(){
+		char *libraries[1];
+		libraries[0] = "writeString";
+		int i;
+		int size = 1;
+		while (i<size){
+			List *new = malloc(sizeof(List));
+	                new->next = S->definitions;
+	                new->name = strdup(libraries[i]);
+	                S->definitions = new;
+			i++;
+		}
+	}
+
 	int in_list(){
-		Node* stack = S;
-		while (stack!=NULL){
-			List* iter = stack->definitions;
+		Node* temp = S;
+		while (temp!=NULL){
+			List* iter = temp->definitions;
 			while (iter!=NULL){
 				if (strcmp(iter->name,yytext)==0)
 					return 1;
 				iter = iter->next;
 			}
-			stack = stack->next;
+			temp = temp->next;
 		}
 		return 0;
 	}
@@ -208,7 +237,7 @@ Lh [a-fA-F]
 "end"		{ if(isempty()){printf("Not a begin corresponding to end at line %d\n" , countlines);} if(!S->has_begin){read_again(); yytext="end"; pop(); return T_end;}pop(); return T_end; }
 "exit"		{ ALL_CKECKS return T_exit; }
 "false"		{ return T_false; }
-"if"		{ ALL_CKECKS push(kena); return T_if; }
+"if"		{ printf("statements %d has begin %d pseudo %d\n" , S->statements , S->has_begin , S->pseudo_begin);ALL_CKECKS push(kena); return T_if; }
 "is"		{ return T_is; }
 "int"		{ return T_int; }
 "loop"		{ ALL_CKECKS push(kena); return T_loop; }
@@ -289,3 +318,20 @@ Lh [a-fA-F]
 
 %%
 
+int main () {
+	token = 0;
+	S = NULL;
+	//Make a node in stack corresponding to global namespace
+	push(0);
+	S->statements = 5;
+	S->has_begin = 1;
+	add_libraries();
+	do {
+		token = yylex();
+		printf("token=%d, lexeme=\"%s\"\n", token, yytext);
+		//printf("statements: %d begin_exists: %d pesudo_begin: %d\n", S->statements , S->has_begin,S->pseudo_begin);
+	} while (token != T_eof);
+	if (num_comment != 0) 
+		printf("Not equal number of comments\n");
+	return 0;
+}
