@@ -4,11 +4,12 @@
 #include <stdlib.h>
 #include "lexer.h"
 
+
 void yyerror (const char *msg);
 extern int countlines;
 extern stack S;
+extern char* yytext;
 %}
-
 
 %token T_and "and"
 %token T_def "def"
@@ -58,7 +59,7 @@ extern stack S;
 %%
 
 program: 
-  funcdef
+   funcdef
 ;
 
 localdef_list:
@@ -67,7 +68,7 @@ localdef_list:
 ;
 
 funcdef: 
-  "def" localdef_list block
+  "def" {printf("found a def\n");} header localdef_list {printf("found a def3\n");}  block  {printf("found a def4\n");}
 ;
 
 fpardef_list:
@@ -76,7 +77,10 @@ fpardef_list:
 ;
   
 header: 
-  T_id "is" datatype ':' fpardef fpardef_list 
+  T_id 
+| T_id "is" datatype 
+| T_id ':' fpardef fpardef_list
+| T_id "is" datatype ':' fpardef fpardef_list 
 ;
 
 id_list:
@@ -148,7 +152,7 @@ stmt:
 ;
 
 block:
-  "begin" stmt_list "end" 
+  {printf("%s\n",yytext); } stmt_list "end" 
 ;
 
 exprlist:
@@ -196,7 +200,7 @@ cond:
 %%
 
 void yyerror (const char *msg) {
-  fprintf(stderr, "Minibasic error: %s\n", msg);
+  fprintf(stderr, "Dana error: %s\n", msg);
   fprintf(stderr, "Aborting, I've had enough with line %d...\n",
           countlines);
   exit(1);
@@ -204,13 +208,14 @@ void yyerror (const char *msg) {
 
 int main() {
         S = NULL;
+	printf("parsing...\n");
         //Make a node in stack corresponding to global namespace
         push(0);
         S->statements = 5;		//random nnumer
         S->has_begin = 1;
-	add_to_list("writeString");
+	add_libraries();
 	if (yyparse()) return 1;
-		printf("Compilation was successful.\n");
+	printf("Compilation was successful.\n");
 	return 0;
 }
    

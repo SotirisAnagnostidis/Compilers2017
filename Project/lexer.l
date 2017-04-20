@@ -1,43 +1,8 @@
 %{
 	#include <stdio.h>	
+	#include "parser.h"
 
-	#define T_eof 0
-	#define T_and 1001
-	#define T_as 1002
-	#define T_begin 1003
-	#define T_break 1004
-	#define T_byte 1005
-	#define T_continue 1006
-	#define T_decl 1007
-	#define T_def 1008
-	#define T_elif 1009
-	#define T_else 1010
-	#define T_end 1011
-	#define T_exit 1012
-	#define T_false 1013
-	#define T_if 1014
-	#define T_is 1015
-	#define T_int 1016
-	#define T_loop 1017
-	#define T_not 1018
-	#define T_or 1019
-	#define T_ref 1020
-	#define T_return 1021
-	#define T_skip 1022
-	#define T_true 1023
-	#define T_var 1024
-
-	#define T_not_equal 1025
-	#define T_less_equal 1026
-	#define T_greater_equal 1027
-	#define T_set_value 1028
-
-	#define T_id 1029
-	#define T_const 1030
-	#define T_characters 1031
-	#define T_string 1032
-        
-	
+	#define T_eof 0	
 	#define MAX_STRING_SIZE 256	
 	#define TAB_SIZE 8
 	int countlines = 1;
@@ -280,10 +245,8 @@ Lh [a-fA-F]
 
 
 {L}({L}|{D})*{W}*("[".*"]"{W}*)?":="	{ /*set value to an id so it is an statement*/ L_VALUE_CHECK_ARRAY  return T_id; }
-{L}({L}|{D})*{W}*"(" 	{ /*in this case not a statement*/ temp = strdup(yytext); ;return_id(temp); return T_id;}
 
-
-{L}({L}|{D})*		{ if (token==T_decl || token==T_def){add_to_list(yytext);}else{if(in_list()){ ALL_CKECKS } } return T_id; }
+{L}({L}|{D})*		{ if (token==T_def){add_to_list(yytext);}else{if(in_list()){ ALL_CKECKS } } return T_id; }
 {D}+    		{ return T_const; }
 
 
@@ -318,20 +281,3 @@ Lh [a-fA-F]
 
 %%
 
-int main () {
-	token = 0;
-	S = NULL;
-	//Make a node in stack corresponding to global namespace
-	push(0);
-	S->statements = 5;
-	S->has_begin = 1;
-	add_libraries();
-	do {
-		token = yylex();
-		printf("token=%d, lexeme=\"%s\"\n", token, yytext);
-		//printf("statements: %d begin_exists: %d pesudo_begin: %d\n", S->statements , S->has_begin,S->pseudo_begin);
-	} while (token != T_eof);
-	if (num_comment != 0) 
-		printf("Not equal number of comments\n");
-	return 0;
-}
