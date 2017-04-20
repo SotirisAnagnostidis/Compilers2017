@@ -68,7 +68,7 @@ localdef_list:
 ;
 
 funcdef: 
-  "def" {printf("found a def\n");} header localdef_list {printf("found a def3\n");}  block  {printf("found a def4\n");}
+  "def" header localdef_list block 
 ;
 
 fpardef_list:
@@ -136,7 +136,7 @@ vardef:
 
 st_list:
   /*nothing*/
-| "elif" cond ':' block st_list
+| "elif" cond ':' block st_list st_list
 ;
 
 stmt:
