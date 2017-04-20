@@ -57,19 +57,28 @@
 	typedef struct node {
 		struct node* next;
 		int beggining;
-		short has_begin;
+		char has_begin;
 		int statements;
-		short pseudo_begin;
-		short is_def;
+		char pseudo_begin;
+		char is_def;
 		List* definitions;
 	} Node;
 
 	typedef Node* stack;
 	stack S=NULL;
-	
+		
+	void my_free(List *temp){
+		if (temp!=NULL){
+			if (temp->next != NULL)
+				my_free(temp->next);
+		}
+		free(temp);
+	}
+
 	void pop(){
 		Node* temp = S;		
 		S = S->next;
+		my_free(temp->definitions);
 		free(temp);
 	}
 
@@ -100,7 +109,6 @@
 	}
 
 	int check(int sp){
-		//printf("started CHECK_LAST by %s for %d kena" , yytext , sp);
 		//if (isempty())
 		//	printf("\n");
 		//else
@@ -160,10 +168,10 @@
 		unput(':');
 	}
 	
-	void add_to_list(){
+	void add_to_list(char *name){
 		List *new = malloc(sizeof(List));
 		new->next = S->next->definitions;
-		new->name = strdup(yytext);
+		new->name = strdup(name);
 		S->next->definitions = new;
 	}
 	
@@ -210,7 +218,7 @@ Lh [a-fA-F]
 "def"		{ if(!isempty()){ALL_CKECKS push(kena);} S->is_def=1; return T_def; }
 "elif"		{ ALL_CKECKS push(kena); return T_elif; }
 "else"		{ ALL_CKECKS push(kena); return T_else; }
-"end"		{ if(isempty()){printf("Not a begin corresponding to end at line %d\n" , countlines);exit(1);} if(!S->has_begin){read_again(); yytext="end"; pop(); return T_end;}pop(); return T_end; }
+"end"		{ if(isempty()){printf("Not a begin corresponding to end at line %d\n" , countlines);} if(!S->has_begin){read_again(); yytext="end"; pop(); return T_end;}pop(); return T_end; }
 "exit"		{ ALL_CKECKS return T_exit; }
 "false"		{ return T_false; }
 "if"		{ ALL_CKECKS push(kena); return T_if; }
@@ -244,14 +252,14 @@ Lh [a-fA-F]
 		char c2 = to_number(yytext[4]);
 		yytext[1] = c1*16 + c2;
 		return T_characters; }
-'[\n\t\r\0\\\'\"]' 	{return T_characters; }
-\'\\0\'			{return T_characters; }
-\'\\n\'			{return T_characters; }
-\'\\t\'			{return T_characters; }
-\'\\r\'			{return T_characters; }
-\'\\\\\'			{return T_characters; }
-\'\\\'\'			{return T_characters; }
-\'\\\"\'			{return T_characters; }		
+'[\n\t\r\0\\\'\"]' 	{ return T_characters; }
+\'\\0\'			{ return T_characters; }
+\'\\n\'			{ return T_characters; }
+\'\\t\'			{ return T_characters; }
+\'\\r\'			{ return T_characters; }
+\'\\\\\'			{ return T_characters; }
+\'\\\'\'			{ return T_characters; }
+\'\\\"\'			{ return T_characters; }		
 
 
 
@@ -259,24 +267,24 @@ Lh [a-fA-F]
 {L}({L}|{D})*{W}*"(" 	{ /*in this case not a statement*/ temp = strdup(yytext); ;return_id(temp); return T_id;}
 
 
-{L}({L}|{D})*		{ if (token==T_decl || token==T_def){add_to_list();}else{if(in_list()){ ALL_CKECKS } } return T_id; }
+{L}({L}|{D})*		{ if (token==T_decl || token==T_def){add_to_list(yytext);}else{if(in_list()){ ALL_CKECKS } } return T_id; }
 {D}+    		{ return T_const; }
 
 
-\"([^\\\"]|\\.)*\"{W}*":=" {L_VALUE_CHECK_STRING return T_id; }
+\"([^\\\"]|\\.)*\"{W}*":=" { L_VALUE_CHECK_STRING return T_id; }
 
-\"([^\\\"]|\\.)*\"  {return T_string;}
+\"([^\\\"]|\\.)*\"  	{return T_string;}
 
 
-"(*"		{num_comment = 1; BEGIN(comment); }
-<comment>[^*(\n]* {/* eat anything that’s not a ’*’ */ }
+"(*"			{ num_comment = 1; BEGIN(comment); }
+<comment>[^*(\n]* 	{ /* eat anything that’s not a ’*’ */ }
 <comment>"("+[^(*\n]* 
 <comment>"*"+[^*)\n]* 
-<comment>"("+"*" {num_comment++; }
-<comment>\n 	{countlines++; }
-<comment>"*"+")" {num_comment--; if (num_comment==0) BEGIN(0);  }	
+<comment>"("+"*"	{ num_comment++; }
+<comment>\n 		{ countlines++; }
+<comment>"*"+")" 	{ num_comment--; if (num_comment==0) BEGIN(0);  }	
 
-#.*\n		{ countlines++; } 
+#.*\n			{ countlines++; } 
 
 
 
@@ -286,6 +294,9 @@ Lh [a-fA-F]
 
 
 "*)"		{ printf("At line %d a comment closed that never opened\n" , countlines); }
+
+<<EOF>>		{ /*if end of file close all unclosed blocks*/if(S->has_begin == 0){ yytext="end"; pop(); return T_end; } return T_eof; }
+
 .		{ printf("symbol \'%s\' in line %d not recognized\n" , yytext ,countlines ); }
 
 
@@ -301,14 +312,6 @@ int main () {
 	int test_eof = 0;
 	do {
 		token = yylex();
-		if (token ==T_eof && test_eof == 0){
-			unput('f');
-			unput('i');
-			unput('\n');
-			token = 1;
-			test_eof = 1;
-			continue;
-		}
 		printf("token=%d, lexeme=\"%s\"\n", token, yytext);
 		//printf("statements: %d begin_exists: %d pesudo_begin: %d\n", S->statements , S->has_begin,S->pseudo_begin);
 	} while (token != T_eof);
