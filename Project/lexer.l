@@ -1,6 +1,8 @@
 %{
-	#include <stdio.h>	
-	#include "parser.h"
+	#include <stdlib.h>
+        #include <stdio.h>
+        #include "parser.h"
+        #include "lexer.h"
 
 	#define T_eof 0	
 	#define MAX_STRING_SIZE 256	
@@ -16,24 +18,6 @@
 	
 	static void yyunput (int c, char * yy_bp );
 
-	typedef struct list{
-		struct list *next;
-		char *name;
-	} List;	
-
-	typedef struct node {
-		struct node* next;
-		int beggining;
-		char has_begin;
-		int statements;
-		char pseudo_begin;
-		char is_def;
-		List* definitions;
-	} Node;
-
-	typedef Node* stack;
-	stack S=NULL;
-		
 	void my_free(List *temp){
 		if (temp!=NULL){
 			if (temp->next != NULL)
@@ -142,20 +126,6 @@
 		S->next->definitions = new;
 	}
 	
-	void add_libraries(){
-		char *libraries[1];
-		libraries[0] = "writeString";
-		int i;
-		int size = 1;
-		while (i<size){
-			List *new = malloc(sizeof(List));
-	                new->next = S->definitions;
-	                new->name = strdup(libraries[i]);
-	                S->definitions = new;
-			i++;
-		}
-	}
-
 	int in_list(){
 		Node* temp = S;
 		while (temp!=NULL){

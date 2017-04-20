@@ -4,10 +4,9 @@
 #include <stdlib.h>
 #include "lexer.h"
 
-
 void yyerror (const char *msg);
+
 extern int countlines;
-extern stack S;
 extern char* yytext;
 %}
 
@@ -59,7 +58,7 @@ extern char* yytext;
 %%
 
 program: 
-   funcdef
+   funcdef {printf("ficdef yytext: %s\n" , yytext); }
 ;
 
 localdef_list:
@@ -68,7 +67,7 @@ localdef_list:
 ;
 
 funcdef: 
-  "def" header localdef_list block 
+  "def" {printf("before header yytext: %s\n" , yytext); } header {printf("after header yytext: %s\n" , yytext); } localdef_list{printf("before block yytext: %s\n" , yytext); } block 
 ;
 
 fpardef_list:
@@ -145,14 +144,16 @@ stmt:
 | proccall 
 | "exit" 
 | "return" ':' expr
+| "if" cond ':' block st_list
 | "if" cond ':' block st_list  "else" ':' block
 | "loop" T_id ':' block 
+| "lopp" ':' block
 | "break" ':' T_id  
 | "continue" ':' T_id 
 ;
 
 block:
-  {printf("%s\n",yytext); } stmt_list "end" 
+  {printf("before block yytext: %s\n" , yytext); }"begin" stmt_list "end" 
 ;
 
 exprlist:
@@ -165,7 +166,8 @@ proccall:
 ;
 
 funccall: 
-  T_id '(' expr exprlist  ')'
+  T_id
+| T_id '(' expr exprlist  ')'
 ;
 
 lvalue: 
@@ -186,15 +188,25 @@ expr:
 | expr '*' expr
 | expr '/' expr
 | expr '%' expr
-| "true" | "false" | '!' expr | expr '&' expr | expr '|' expr
+| "true" 
+| "false" 
+| '!' expr 
+| expr '&' expr 
+| expr '|' expr
 ;
 
 cond:
   expr 
 | '(' cond ')'
 | "not" cond 
-| cond "and" cond | cond  "or" cond
-| expr '=' expr | expr "<>" expr  | expr '<'  expr | expr '>' expr | expr "<=" expr | expr ">=" expr
+| cond "and" cond 
+| cond  "or" cond
+| expr '=' expr 
+| expr "<>" expr 
+| expr '<'  expr 
+| expr '>' expr 
+| expr "<=" expr 
+| expr ">=" expr
 ;
 
 %%
@@ -206,12 +218,32 @@ void yyerror (const char *msg) {
   exit(1);
 }
 
+void insert_libraries(char *name,char **libraries,int pos){
+	
+	libraries[pos] = name;
+}
+
+void add_libraries(){
+        int size = 1;
+	char **libraries;
+	libraries = malloc(size*sizeof(char*));
+        insert_libraries("writeString",libraries,0);
+	int i = 0;
+	while (i<size){
+		List *new = malloc(sizeof(new));
+		new->next = S->definitions;
+		new->name = libraries[i];
+		S->definitions = new;
+		i++;
+	}
+}
+
 int main() {
-        S = NULL;
 	printf("parsing...\n");
         //Make a node in stack corresponding to global namespace
-        push(0);
-        S->statements = 5;		//random nnumer
+        S = malloc(sizeof(stack));
+        S->beggining = 0;
+        S->statements = 5;		//random nnumer > 1
         S->has_begin = 1;
 	add_libraries();
 	if (yyparse()) return 1;

@@ -17,7 +17,5 @@
 	} Node;
 
 	typedef Node* stack;
-
-	void add_to_list(char *name);
-	void push(int spaces);
+	stack S;
 #endif
