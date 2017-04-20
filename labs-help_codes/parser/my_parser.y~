@@ -1,0 +1,51 @@
+%{ 
+
+%}
+
+%token T_and "and"
+%token T_def "def"
+%token T_is "is"
+%token T_skip "skip"
+%token T_as "as"
+%token T_elif "elif"
+%token T_int "int"
+%token T_true "true"
+%token T_else "else"
+%token T_var "var"
+%token T_loop "loop"
+%token T_break "break"
+%token T_not "not"
+%token T_byte "byte"
+%token T_exit "exit"
+%token T_or "or"
+%token T_continue "continue"
+%token T_false "false"
+%token T_ref "ref"
+%token T_decl "decl"
+%token T_return "return"
+%token T_if "if"
+%token T_then "then"
+%token T_begin "begin"
+%token T_end "end"
+
+%token T_id
+%token T_const 
+%token T_characters
+%token T_string
+
+%token T_not_equal 
+%token T_less_equal
+%token T_greater_equal
+%token T_set_value
+
+
+%left "or"
+%left "and"
+%left "not"
+%left '=' "<>" '>' '<' "<=" ">="
+%left '+' '-' '|'
+%left '*' '/' '%' '&'
+%left UPLUS UMINUS UNEG
+
+%
+
