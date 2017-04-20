@@ -66,10 +66,19 @@
 
 	typedef Node* stack;
 	stack S=NULL;
-	
+		
+	void my_free(List *temp){
+		if (temp!=NULL){
+			if (temp->next != NULL)
+				my_free(temp->next);
+		}
+		free(temp);
+	}
+
 	void pop(){
 		Node* temp = S;		
 		S = S->next;
+		my_free(temp->definitions);
 		free(temp);
 	}
 
@@ -286,6 +295,9 @@ Lh [a-fA-F]
 
 
 "*)"		{ printf("At line %d a comment closed that never opened\n" , countlines); }
+
+<<EOF>>	{ if(S->has_begin == 0){ yytext="end"; pop(); return T_end; } return T_eof; }
+
 .		{ printf("symbol \'%s\' in line %d not recognized\n" , yytext ,countlines ); }
 
 
@@ -301,14 +313,6 @@ int main () {
 	int test_eof = 0;
 	do {
 		token = yylex();
-		if (token ==T_eof && test_eof == 0){
-			unput('f');
-			unput('i');
-			unput('\n');
-			token = 1;
-			test_eof = 1;
-			continue;
-		}
 		printf("token=%d, lexeme=\"%s\"\n", token, yytext);
 		//printf("statements: %d begin_exists: %d pesudo_begin: %d\n", S->statements , S->has_begin,S->pseudo_begin);
 	} while (token != T_eof);
