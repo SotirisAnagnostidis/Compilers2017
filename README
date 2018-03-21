@@ -1,0 +1,37 @@
+**************************************************
+Anagnostidis Sotiris
+Strati Foteini
+**************************************************
+
+In this document, you will find instructions to produce an executable with name "dana", which is the executable of our compiler, and instructions in order to be able to test our compiler.
+
+***************************************************
+
+In order to do this, it is necessary to have:
+
+1. flex tool    (version we have: flex 2.6.0)
+2. bison tool   (version we have: bison (GNU Bison) 3.0.4)
+3. llc tool     (version we have: LLVM version 4.0.1)
+4. clang tool   (version we have: clang version 3.8.0-2ubuntu4)
+
+***************************************************
+
+With command "make" the executable "dana" is produced.
+After that you can run our compiler with the script run.sh using one of the different modes:
+
+1. ./run.sh "input_file"       : compile the code in "input_file" without optimization. Intermmidiate and final code are at the 				"input_file.imm" and "input_file.asm" as requested
+
+2. ./run.sh "input_file" -o    : compile with optimization
+
+3. ./run.sh -f    : copy the source code to the standard input, then press <ENTER> and <Ctrl-D> and the final code will appear at 			    the standard output. Using the flag -o, the code is compiled with optimization.
+
+4. ./run.sh -i    : copy the source code to the standard input, then press <ENTER> and <Ctrl-D> and the intermmidiate code will 		    appear at the standard output.  Using the flag -o, the code is compiled with optimization.
+
+
+*Note*: In the file we have commited, you will find a document with name: "libraries.h", which contains the library-functions of the dana language. The script "run.sh" is responsible for linking the input_file with the "libraries.h".
+
+
+
+
+
+

@@ -17,6 +17,9 @@
 	} Node;
 
 	typedef Node* stack;
-	stack S;
+	extern stack S;
+        extern int id_line1;
+        extern int id_line2;
 	void push(int spaces);
+	extern int token;
 #endif
